@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notificação Dengue/Chikungunya</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#1d2329;--muted:#5b6670;--line:#d5dbe0;--accent:#0b6e4f;--accent-ink:#fff;--warn:#b42318;--sel:#e3f2ec}
+@media (prefers-color-scheme:dark){:root{--bg:#14181c;--card:#1d2328;--ink:#e8ecef;--muted:#9aa5ae;--line:#34404a;--accent:#3fb98a;--accent-ink:#0b1a14;--warn:#ff8a7a;--sel:#1f3a30}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-ink);padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+header h1{font-size:18px;margin:0;flex:1 1 220px}
+header button{background:transparent;color:inherit;border:1px solid currentColor;border-radius:8px;padding:8px 12px;font:inherit;font-size:15px;cursor:pointer}
+header button.on{background:var(--accent-ink);color:var(--accent)}
+main{max-width:980px;margin:0 auto;padding:16px}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+section h2{font-size:16px;margin:0 0 10px;color:var(--accent);text-transform:uppercase;letter-spacing:.03em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px}
+.f{display:flex;flex-direction:column;gap:4px}
+.f.wide{grid-column:1/-1}
+label.t{font-size:14px;color:var(--muted)}
+label.t b{color:var(--ink);font-weight:600}
+.req label.t b::after{content:" *";color:var(--warn)}
+input,select,textarea{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);width:100%;min-height:46px}
+textarea{min-height:90px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opts label{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;min-height:44px;font-size:15px}
+.opts input{width:auto;min-height:0;margin:0}
+.opts label:has(input:checked){background:var(--sel);border-color:var(--accent)}
+.sym{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+.sym .row{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px dashed var(--line);padding:4px 0}
+.sym .row span{font-size:15px}
+.seg{display:flex}
+.seg label{border:1px solid var(--line);padding:8px 12px;cursor:pointer;font-size:14px;min-width:46px;text-align:center}
+.seg label:first-child{border-radius:8px 0 0 8px}.seg label:last-child{border-radius:0 8px 8px 0}
+.seg input{display:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.err{outline:2px solid var(--warn);border-radius:8px}
+.def{font-size:13px;color:var(--muted);margin:0 0 8px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;position:sticky;bottom:0;background:var(--bg);padding:10px 0}
+.btn{font:inherit;padding:12px 18px;border-radius:10px;border:1px solid var(--accent);background:var(--card);color:var(--accent);cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.danger{border-color:var(--warn);color:var(--warn)}
+.hidden{display:none!important}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+.tablewrap{overflow-x:auto}
+#msg{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw}
+#msg.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>Notificação Dengue / Chikungunya</h1>
+  <button id="tabForm" class="on">Nova ficha</button>
+  <button id="tabList">Registros (<span id="count">0</span>)</button>
+  <button id="tabCfg">Unidade</button>
+</header>
+<main>
+  <div id="viewForm">
+    <form id="form" novalidate></form>
+    <div class="actions">
+      <button type="button" class="btn pri" id="save">Salvar ficha</button>
+      <button type="button" class="btn" id="clear">Limpar</button>
+    </div>
+  </div>
+
+  <div id="viewList" class="hidden">
+    <section>
+      <h2>Exportar</h2>
+      <p class="def">Os registros ficam guardados neste navegador. Exporte com frequência e guarde a planilha em local seguro: limpar os dados do navegador apaga os registros.</p>
+      <div class="opts">
+        <button class="btn pri" id="expCsv">Baixar tabela (CSV)</button>
+        <button class="btn" id="expDict">Baixar dicionário de variáveis</button>
+        <button class="btn danger" id="wipe">Apagar todos os registros</button>
+      </div>
+    </section>
+    <section>
+      <h2>Registros salvos</h2>
+      <div class="tablewrap"><table id="list"></table></div>
+    </section>
+  </div>
+
+  <div id="viewCfg" class="hidden">
+    <section>
+      <h2>Dados fixos da unidade</h2>
+      <p class="def">Preenchidos automaticamente em cada nova ficha.</p>
+      <div class="grid" id="cfg"></div>
+      <div class="actions"><button class="btn pri" id="saveCfg">Salvar</button></div>
+    </section>
+  </div>
+</main>
+<div id="msg"></div>
+
+<script>
+// Campos numerados conforme a ficha SINAN Dengue/Chikungunya (SVS 14/03/2016).
+// type: text | num | date | radio | select | check (grupo Sim/Não[/Ign]) | area
+const UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
+const SN = [["1","Sim"],["2","Não"]];
+const SNI = [["1","Sim"],["2","Não"],["9","Ign"]];
+const RES4 = [["1","Positivo"],["2","Negativo"],["3","Inconclusivo"],["4","Não realizado"]];
+
+const SECTIONS = [
+ {title:"Dados gerais", fields:[
+  {id:"tp_not", n:1, label:"Tipo de notificação", type:"radio", opts:[["2","Individual"]], def:"2"},
+  {id:"agravo", n:2, label:"Agravo/doença", type:"radio", opts:[["1","Dengue (A90)"],["2","Chikungunya (A92.0)"]], req:true},
+  {id:"dt_notific", n:3, label:"Data da notificação", type:"date", req:true, today:true},
+  {id:"sg_uf_not", n:4, label:"UF", type:"select", opts:UFS.map(u=>[u,u]), req:true, cfg:true},
+  {id:"id_municip", n:5, label:"Município de notificação", type:"text", req:true, cfg:true},
+  {id:"cod_mun_not", label:"Código IBGE (notificação)", type:"text", cfg:true, pattern:"^\\d{6,7}$"},
+  {id:"id_unidade", n:6, label:"Unidade de saúde", type:"text", req:true, cfg:true},
+  {id:"cod_unidade", label:"Código da unidade (CNES)", type:"text", cfg:true, pattern:"^\\d{7}$"},
+  {id:"dt_sin_pri", n:7, label:"Data dos primeiros sintomas", type:"date", req:true},
+ ]},
+ {title:"Notificação individual", fields:[
+  {id:"nm_pacient", n:8, label:"Nome do paciente", type:"text", req:true, wide:true},
+  {id:"dt_nasc", n:9, label:"Data de nascimento", type:"date"},
+  {id:"idade", n:10, label:"(ou) Idade", type:"num"},
+  {id:"idade_un", label:"Unidade da idade", type:"radio", opts:[["1","Hora"],["2","Dia"],["3","Mês"],["4","Ano"]]},
+  {id:"cs_sexo", n:11, label:"Sexo", type:"radio", opts:[["M","Masculino"],["F","Feminino"],["I","Ignorado"]], req:true},
+  {id:"cs_gestant", n:12, label:"Gestante", type:"radio", opts:[["1","1º trim."],["2","2º trim."],["3","3º trim."],["4","IG ignorada"],["5","Não"],["6","Não se aplica"],["9","Ignorado"]], req:true, wide:true},
+  {id:"cs_raca", n:13, label:"Raça/cor", type:"radio", opts:[["1","Branca"],["2","Preta"],["3","Amarela"],["4","Parda"],["5","Indígena"],["9","Ignorado"]], req:true, wide:true},
+  {id:"cs_escol_n", n:14, label:"Escolaridade", type:"select", wide:true, opts:[["0","0 - Analfabeto"],["1","1 - 1ª a 4ª série incompleta do EF"],["2","2 - 4ª série completa do EF"],["3","3 - 5ª à 8ª série incompleta do EF"],["4","4 - Ensino fundamental completo"],["5","5 - Ensino médio incompleto"],["6","6 - Ensino médio completo"],["7","7 - Educação superior incompleta"],["8","8 - Educação superior completa"],["9","9 - Ignorado"],["10","10 - Não se aplica"]]},
+  {id:"id_cns_sus", n:15, label:"Número do Cartão SUS", type:"text", pattern:"^\\d{15}$", inputmode:"numeric"},
+  {id:"nm_mae_pac", n:16, label:"Nome da mãe", type:"text"},
+ ]},
+ {title:"Dados de residência", fields:[
+  {id:"sg_uf", n:17, label:"UF", type:"select", opts:UFS.map(u=>[u,u]), req:true, cfg:true},
+  {id:"id_mn_resi", n:18, label:"Município de residência", type:"text", req:true, cfg:true},
+  {id:"cod_mn_resi", label:"Código IBGE (residência)", type:"text", cfg:true, pattern:"^\\d{6,7}$"},
+  {id:"id_distrit", n:19, label:"Distrito", type:"text"},
+  {id:"nm_bairro", n:20, label:"Bairro", type:"text"},
+  {id:"nm_logrado", n:21, label:"Logradouro (rua, avenida...)", type:"text", wide:true},
+  {id:"nu_numero", n:22, label:"Número", type:"text"},
+  {id:"nm_complem", n:23, label:"Complemento", type:"text"},
+  {id:"nm_geo1", n:24, label:"Geo campo 1", type:"text"},
+  {id:"nm_geo2", n:25, label:"Geo campo 2", type:"text"},
+  {id:"nm_referen", n:26, label:"Ponto de referência", type:"text"},
+  {id:"nu_cep", n:27, label:"CEP", type:"text", pattern:"^\\d{5}-?\\d{3}$", inputmode:"numeric"},
+  {id:"nu_telefon", n:28, label:"(DDD) Telefone", type:"text", inputmode:"tel"},
+  {id:"cs_zona", n:29, label:"Zona", type:"radio", opts:[["1","Urbana"],["2","Rural"],["3","Periurbana"],["9","Ignorado"]]},
+  {id:"id_pais", n:30, label:"País (se residente fora do Brasil)", type:"text"},
+ ]},
+ {title:"Investigação e dados clínicos", fields:[
+  {id:"dt_invest", n:31, label:"Data da investigação", type:"date", today:true},
+  {id:"id_ocupa_n", n:32, label:"Ocupação", type:"text"},
+  {id:"sinais", n:33, label:"Sinais clínicos", type:"check", opts:SN, wide:true, items:[
+    ["febre","Febre"],["mialgia","Mialgia"],["cefaleia","Cefaleia"],["exantema","Exantema"],["vomito","Vômito"],["nausea","Náuseas"],["dor_costas","Dor nas costas"],["conjuntvit","Conjuntivite"],["artrite","Artrite"],["artralgia","Artralgia intensa"],["petequia_n","Petéquias"],["leucopenia","Leucopenia"],["laco","Prova do laço positiva"],["dor_retro","Dor retroorbital"]]},
+  {id:"doencas", n:34, label:"Doenças pré-existentes", type:"check", opts:SNI, wide:true, items:[
+    ["diabetes","Diabetes"],["hematolog","Doenças hematológicas"],["hepatopat","Hepatopatias"],["renal","Doença renal crônica"],["hipertensa","Hipertensão arterial"],["acido_pept","Doença ácido-péptica"],["auto_imune","Doenças auto-imunes"]]},
+ ]},
+ {title:"Dados laboratoriais", fields:[
+  {id:"dt_chik_s1", n:35, label:"Sorologia IgM Chikungunya – coleta S1", type:"date"},
+  {id:"dt_chik_s2", n:36, label:"Sorologia IgM Chikungunya – coleta S2", type:"date"},
+  {id:"dt_prnt", n:37, label:"Exame PRNT – data da coleta", type:"date"},
+  {id:"res_chiks1", n:38, label:"Resultado S1", type:"radio", opts:[["1","Reagente"],["2","Não reagente"],["3","Inconclusivo"],["4","Não realizado"]]},
+  {id:"res_chiks2", n:38, label:"Resultado S2", type:"radio", opts:[["1","Reagente"],["2","Não reagente"],["3","Inconclusivo"],["4","Não realizado"]]},
+  {id:"resul_prnt", n:38, label:"Resultado PRNT", type:"radio", opts:[["1","Reagente"],["2","Não reagente"],["3","Inconclusivo"],["4","Não realizado"]]},
+  {id:"dt_soro", n:39, label:"Sorologia IgM Dengue – data da coleta", type:"date"},
+  {id:"resul_soro", n:40, label:"Resultado sorologia dengue", type:"radio", opts:RES4},
+  {id:"dt_ns1", n:41, label:"Exame NS1 – data da coleta", type:"date"},
+  {id:"resul_ns1", n:42, label:"Resultado NS1", type:"radio", opts:RES4},
+  {id:"dt_viral", n:43, label:"Isolamento viral – data da coleta", type:"date"},
+  {id:"resul_vi_n", n:44, label:"Resultado isolamento", type:"radio", opts:RES4},
+  {id:"dt_pcr", n:45, label:"RT-PCR – data da coleta", type:"date"},
+  {id:"resul_pcr_", n:46, label:"Resultado RT-PCR", type:"radio", opts:RES4},
+  {id:"sorotipo", n:47, label:"Sorotipo", type:"radio", opts:[["1","DENV 1"],["2","DENV 2"],["3","DENV 3"],["4","DENV 4"]]},
+  {id:"histopa_n", n:48, label:"Histopatologia", type:"radio", opts:[["1","Compatível"],["2","Incompatível"],["3","Inconclusivo"],["4","Não realizado"]]},
+  {id:"imunoh_n", n:49, label:"Imunohistoquímica", type:"radio", opts:RES4},
+ ]},
+ {title:"Hospitalização", fields:[
+  {id:"hospitaliz", n:50, label:"Ocorreu hospitalização?", type:"radio", opts:SNI},
+  {id:"dt_interna", n:51, label:"Data da internação", type:"date", show:r=>r.hospitaliz==="1"},
+  {id:"uf_hosp", n:52, label:"UF do hospital", type:"select", opts:UFS.map(u=>[u,u]), show:r=>r.hospitaliz==="1"},
+  {id:"mun_hosp", n:53, label:"Município do hospital", type:"text", show:r=>r.hospitaliz==="1"},
+  {id:"nm_hosp", n:54, label:"Nome do hospital", type:"text", show:r=>r.hospitaliz==="1"},
+  {id:"cod_hosp", label:"Código do hospital (CNES)", type:"text", show:r=>r.hospitaliz==="1"},
+  {id:"tel_hosp", n:55, label:"(DDD) Telefone do hospital", type:"text", inputmode:"tel", show:r=>r.hospitaliz==="1"},
+ ]},
+ {title:"Local provável de infecção (15 dias)", fields:[
+  {id:"tpautocto", n:56, label:"O caso é autóctone do município de residência?", type:"radio", opts:[["1","Sim"],["2","Não"],["3","Indeterminado"]], wide:true},
+  {id:"coufinf", n:57, label:"UF", type:"select", opts:UFS.map(u=>[u,u]), show:r=>r.tpautocto==="2"},
+  {id:"copaisinf", n:58, label:"País", type:"text", show:r=>r.tpautocto==="2"},
+  {id:"comuninf", n:59, label:"Município", type:"text", show:r=>r.tpautocto==="2"},
+  {id:"codisinf", n:60, label:"Distrito", type:"text", show:r=>r.tpautocto==="2"},
+  {id:"co_bainf", n:61, label:"Bairro", type:"text", show:r=>r.tpautocto==="2"},
+ ]},
+ {title:"Conclusão", fields:[
+  {id:"classi_fin", n:62, label:"Classificação", type:"radio", wide:true, opts:[["5","Descartado"],["10","Dengue"],["11","Dengue c/ sinais de alarme"],["12","Dengue grave"],["13","Chikungunya"]]},
+  {id:"criterio", n:63, label:"Critério de confirmação/descarte", type:"radio", opts:[["1","Laboratório"],["2","Clínico-epidemiológico"],["3","Em investigação"]], wide:true},
+  {id:"clinc_chik", n:64, label:"Apresentação clínica (Chikungunya)", type:"radio", opts:[["1","Aguda"],["2","Crônica"]], show:r=>r.classi_fin==="13"},
+  {id:"evolucao", n:65, label:"Evolução do caso", type:"radio", wide:true, opts:[["1","Cura"],["2","Óbito pelo agravo"],["3","Óbito por outras causas"],["4","Óbito em investigação"],["9","Ignorado"]]},
+  {id:"dt_obito", n:66, label:"Data do óbito", type:"date", show:r=>["2","3","4"].includes(r.evolucao)},
+  {id:"dt_encerra", n:67, label:"Data do encerramento", type:"date"},
+ ]},
+ {title:"Dengue com sinais de alarme", show:r=>["11","12"].includes(r.classi_fin), fields:[
+  {id:"alarme", n:68, label:"Sinais de alarme", type:"check", opts:SNI, wide:true, items:[
+    ["alrm_hipot","Hipotensão postural e/ou lipotímia"],["alrm_plaq","Queda abrupta de plaquetas"],["alrm_vom","Vômitos persistentes"],["alrm_abdom","Dor abdominal intensa e contínua"],["alrm_letar","Letargia ou irritabilidade"],["alrm_sang","Sangramento de mucosa/outras hemorragias"],["alrm_hemat","Aumento progressivo do hematócrito"],["alrm_hepat","Hepatomegalia ≥ 2 cm"],["alrm_liq","Acúmulo de líquidos"]]},
+  {id:"dt_alrm", n:69, label:"Data de início dos sinais de alarme", type:"date"},
+ ]},
+ {title:"Dengue grave", show:r=>r.classi_fin==="12", fields:[
+  {id:"grave", n:70, label:"Sinais de gravidade", type:"check", opts:SNI, wide:true, items:[
+    ["grav_pulso","Pulso débil ou indetectável"],["grav_conv","PA convergente ≤ 20 mmHg"],["grav_ench","Tempo de enchimento capilar ≥ 3 s"],["grav_insuf","Acúmulo de líquidos c/ insuficiência respiratória"],["grav_taqui","Taquicardia"],["grav_extre","Extremidades frias"],["grav_hipot","Hipotensão arterial em fase tardia"],["grav_hemat","Hematêmese"],["grav_melen","Melena"],["grav_metro","Metrorragia volumosa"],["grav_sang","Sangramento do SNC"],["grav_ast","AST/ALT > 1.000"],["grav_mioc","Miocardite"],["grav_consc","Alteração da consciência"]]},
+  {id:"grav_orgao", label:"Outros órgãos (especificar)", type:"text", wide:true},
+  {id:"dt_grav", n:71, label:"Data de início dos sinais de gravidade", type:"date"},
+ ]},
+ {title:"Observações e investigador", fields:[
+  {id:"obs", label:"Informações complementares e observações", type:"area", wide:true},
+  {id:"inv_unidade", label:"Município/Unidade de saúde do investigador", type:"text", cfg:true},
+  {id:"inv_cod", label:"Código da unidade do investigador", type:"text", cfg:true},
+  {id:"inv_nome", label:"Nome do investigador", type:"text", cfg:true},
+  {id:"inv_funcao", label:"Função", type:"text", cfg:true},
+ ]},
+];
+
+const KEY = "sinan_dengchik_registros", CFGKEY = "sinan_dengchik_unidade";
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch(e){ return d } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true }catch(e){ alert("Não foi possível salvar no navegador: "+e.message); return false } }
+};
+let editing = null;
+
+// Lista plana de colunas da tabela exportada
+function columns(){
+  const cols = [["id_registro","Identificador do registro"],["salvo_em","Data/hora de gravação"]];
+  for(const s of SECTIONS) for(const f of s.fields){
+    if(f.type==="check") for(const [k,l] of f.items) cols.push([k, `${f.n}. ${f.label}: ${l}`, f.opts]);
+    else cols.push([f.id, (f.n?f.n+". ":"")+f.label, f.opts]);
+  }
+  return cols;
+}
+
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])) }
+
+function fieldHtml(f, prefix=""){
+  const name = prefix+f.id;
+  const lab = `<label class="t" for="${name}">${f.n?f.n+". ":""}<b>${esc(f.label)}</b></label>`;
+  const cls = `f${f.wide?" wide":""}${f.req?" req":""}`;
+  const attrs = `id="${name}" name="${f.id}"${f.pattern?` pattern="${f.pattern}"`:""}${f.inputmode?` inputmode="${f.inputmode}"`:""}`;
+  switch(f.type){
+    case "text": return `<div class="${cls}" data-f="${f.id}">${lab}<input type="text" ${attrs} autocomplete="off"></div>`;
+    case "num": return `<div class="${cls}" data-f="${f.id}">${lab}<input type="number" min="0" inputmode="numeric" ${attrs}></div>`;
+    case "date": return `<div class="${cls}" data-f="${f.id}">${lab}<input type="date" ${attrs}></div>`;
+    case "area": return `<div class="${cls}" data-f="${f.id}">${lab}<textarea ${attrs}></textarea></div>`;
+    case "select": return `<div class="${cls}" data-f="${f.id}">${lab}<select ${attrs}><option value=""></option>${f.opts.map(([v,t])=>`<option value="${v}">${esc(t)}</option>`).join("")}</select></div>`;
+    case "radio": return `<div class="${cls}" data-f="${f.id}"><span class="t">${lab}</span><div class="opts">${f.opts.map(([v,t])=>`<label><input type="radio" name="${prefix+f.id}" value="${v}">${esc(t)}</label>`).join("")}</div></div>`;
+    case "check": return `<div class="${cls}" data-f="${f.id}">${lab}<div class="sym">${f.items.map(([k,t])=>`<div class="row" data-f="${k}"><span>${esc(t)}</span><div class="seg">${f.opts.map(([v,o])=>`<label><input type="radio" name="${k}" value="${v}">${o}</label>`).join("")}</div></div>`).join("")}</div></div>`;
+  }
+}
+
+function build(){
+  $("#form").innerHTML = SECTIONS.map((s,i)=>`<section data-s="${i}"><h2>${esc(s.title)}</h2><div class="grid">${s.fields.map(f=>fieldHtml(f)).join("")}</div></section>`).join("");
+  const cfgFields = SECTIONS.flatMap(s=>s.fields).filter(f=>f.cfg);
+  $("#cfg").innerHTML = cfgFields.map(f=>fieldHtml({...f, req:false}, "cfg_")).join("");
+}
+
+function readForm(){
+  const r = {}, fd = new FormData($("#form"));
+  for(const [k,v] of fd.entries()) r[k] = String(v).trim();
+  return r;
+}
+
+function writeForm(r){
+  const form = $("#form");
+  form.reset();
+  for(const [k,v] of Object.entries(r)){
+    const els = form.querySelectorAll(`[name="${k}"]`);
+    els.forEach(el => { if(el.type==="radio") el.checked = el.value===v; else el.value = v; });
+  }
+  refresh();
+}
+
+function defaults(){
+  const r = {}, cfg = store.get(CFGKEY, {}), today = new Date().toISOString().slice(0,10);
+  for(const s of SECTIONS) for(const f of s.fields){
+    if(f.def) r[f.id] = f.def;
+    if(f.today) r[f.id] = today;
+    if(f.cfg && cfg[f.id]) r[f.id] = cfg[f.id];
+  }
+  return r;
+}
+
+// Mostra/oculta campos e blocos condicionais
+function refresh(){
+  const r = readForm();
+  SECTIONS.forEach((s,i)=>{
+    const sec = document.querySelector(`section[data-s="${i}"]`);
+    sec.classList.toggle("hidden", !!s.show && !s.show(r));
+    for(const f of s.fields) if(f.show) sec.querySelector(`[data-f="${f.id}"]`).classList.toggle("hidden", !f.show(r));
+  });
+  const gest = document.querySelector('[data-f="cs_gestant"]');
+  if(r.cs_sexo==="M"){ const six = gest.querySelector('input[value="6"]'); if(!six.checked){ six.checked = true; } }
+}
+
+// Calcula idade a partir da data de nascimento
+function autoAge(){
+  const dn = $("#dt_nasc").value, ref = $("#dt_sin_pri").value || $("#dt_notific").value;
+  if(!dn || !ref) return;
+  const a = new Date(dn), b = new Date(ref);
+  if(b < a) return;
+  let anos = b.getFullYear()-a.getFullYear();
+  if(b.getMonth()<a.getMonth() || (b.getMonth()===a.getMonth() && b.getDate()<a.getDate())) anos--;
+  let val, un;
+  if(anos >= 1){ val = anos; un = "4"; }
+  else {
+    const dias = Math.floor((b-a)/86400000);
+    if(dias >= 30){ val = Math.floor(dias/30); un = "3"; } else { val = dias; un = "2"; }
+  }
+  $("#idade").value = val;
+  document.querySelector(`input[name="idade_un"][value="${un}"]`).checked = true;
+}
+
+function validate(r){
+  const errs = [];
+  document.querySelectorAll(".err").forEach(e=>e.classList.remove("err"));
+  const flag = (id,msg) => { const el = document.querySelector(`#form [data-f="${id}"]`); if(el) el.classList.add("err"); errs.push(msg); };
+  for(const s of SECTIONS){
+    if(s.show && !s.show(r)) continue;
+    for(const f of s.fields){
+      if(f.show && !f.show(r)) continue;
+      const v = r[f.id];
+      if(f.req && !v && !(f.id==="cs_gestant" && r.cs_sexo==="M")) flag(f.id, `Preencha: ${f.label}`);
+      if(v && f.pattern && !new RegExp(f.pattern).test(v)) flag(f.id, `Formato inválido: ${f.label}`);
+    }
+  }
+  if(!r.dt_nasc && !(r.idade && r.idade_un)) flag("idade", "Informe a data de nascimento ou a idade com unidade");
+  const today = new Date().toISOString().slice(0,10);
+  for(const [k,v] of Object.entries(r)) if(/^dt_/.test(k) && v && v > today) flag(k, `Data no futuro: ${k}`);
+  if(r.dt_sin_pri && r.dt_notific && r.dt_sin_pri > r.dt_notific) flag("dt_sin_pri", "Data dos primeiros sintomas maior que a data da notificação");
+  if(r.dt_nasc && r.dt_sin_pri && r.dt_nasc > r.dt_sin_pri) flag("dt_nasc", "Data de nascimento maior que a data dos sintomas");
+  if(r.cs_sexo==="M" && r.cs_gestant && !["6"].includes(r.cs_gestant)) flag("cs_gestant", "Sexo masculino: gestante deve ser 'Não se aplica'");
+  return errs;
+}
+
+// Remove valores de campos ocultos antes de salvar
+function prune(r){
+  const out = {};
+  for(const s of SECTIONS){
+    if(s.show && !s.show(r)) continue;
+    for(const f of s.fields){
+      if(f.show && !f.show(r)) continue;
+      if(f.type==="check") for(const [k] of f.items){ if(r[k]) out[k] = r[k]; }
+      else if(r[f.id]) out[f.id] = r[f.id];
+    }
+  }
+  return out;
+}
+
+function save(){
+  const raw = readForm(), errs = validate(raw);
+  if(errs.length){ toast(errs[0] + (errs.length>1?` (+${errs.length-1})`:"")); document.querySelector(".err")?.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+  const recs = store.get(KEY, []);
+  const r = prune(raw);
+  if(editing){
+    const i = recs.findIndex(x=>x.id_registro===editing);
+    r.id_registro = editing; r.salvo_em = new Date().toISOString();
+    if(i>=0) recs[i] = r; else recs.push(r);
+  } else {
+    r.id_registro = (crypto.randomUUID ? crypto.randomUUID() : Date.now()+"-"+Math.random().toString(16).slice(2));
+    r.salvo_em = new Date().toISOString();
+    recs.push(r);
+  }
+  if(!store.set(KEY, recs)) return;
+  toast(editing ? "Ficha atualizada" : "Ficha salva");
+  editing = null; writeForm(defaults()); updateCount(); window.scrollTo(0,0);
+}
+
+function csvCell(v){ v = String(v ?? ""); return /[";\n\r]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; }
+function download(name, text){
+  const blob = new Blob(["﻿"+text], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+function stamp(){ return new Date().toISOString().slice(0,16).replace(/[-:T]/g,""); }
+
+function exportCsv(){
+  const recs = store.get(KEY, []);
+  if(!recs.length){ toast("Nenhum registro para exportar"); return; }
+  const cols = columns();
+  const lines = [cols.map(c=>c[0]).join(";")];
+  for(const r of recs) lines.push(cols.map(c=>csvCell(r[c[0]])).join(";"));
+  download(`notificacoes_dengue_chik_${stamp()}.csv`, lines.join("\r\n"));
+}
+
+function exportDict(){
+  const lines = ["variavel;descricao;codigos"];
+  for(const [k,l,o] of columns()) lines.push([k, l, o ? o.map(([v,t])=>`${v}=${t}`).join(" | ") : ""].map(csvCell).join(";"));
+  download("dicionario_variaveis.csv", lines.join("\r\n"));
+}
+
+function label(f, v){ const o = f?.opts?.find(x=>x[0]===v); return o ? o[1] : (v ?? ""); }
+const F = Object.fromEntries(SECTIONS.flatMap(s=>s.fields).map(f=>[f.id,f]));
+
+function renderList(){
+  const recs = store.get(KEY, []).slice().reverse();
+  $("#list").innerHTML = `<tr><th>Notificação</th><th>Paciente</th><th>Agravo</th><th>Início sintomas</th><th>Classificação</th><th></th></tr>` +
+    (recs.length ? recs.map(r=>`<tr><td>${esc(r.dt_notific)}</td><td>${esc(r.nm_pacient)}</td><td>${esc(label(F.agravo,r.agravo))}</td><td>${esc(r.dt_sin_pri)}</td><td>${esc(label(F.classi_fin,r.classi_fin) || "—")}</td><td><button class="btn" data-ed="${r.id_registro}">Editar</button> <button class="btn danger" data-del="${r.id_registro}">Excluir</button></td></tr>`).join("") : `<tr><td colspan="6">Nenhum registro salvo.</td></tr>`);
+}
+
+function updateCount(){ $("#count").textContent = store.get(KEY, []).length; }
+function toast(t){ const m = $("#msg"); m.textContent = t; m.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(()=>m.classList.remove("show"), 2800); }
+
+function show(view){
+  for(const v of ["Form","List","Cfg"]){ $("#view"+v).classList.toggle("hidden", v!==view); $("#tab"+v).classList.toggle("on", v===view); }
+  if(view==="List") renderList();
+  if(view==="Cfg"){ const cfg = store.get(CFGKEY, {}); for(const [k,v] of Object.entries(cfg)){ const el = $("#cfg_"+k); if(el) el.value = v; } }
+  window.scrollTo(0,0);
+}
+
+build();
+writeForm(defaults());
+updateCount();
+$("#form").addEventListener("change", e=>{ if(["dt_nasc","dt_sin_pri"].includes(e.target.id)) autoAge(); refresh(); });
+$("#save").onclick = save;
+$("#clear").onclick = ()=>{ if(confirm("Limpar a ficha atual?")){ editing = null; writeForm(defaults()); } };
+$("#tabForm").onclick = ()=>show("Form");
+$("#tabList").onclick = ()=>show("List");
+$("#tabCfg").onclick = ()=>show("Cfg");
+$("#expCsv").onclick = exportCsv;
+$("#expDict").onclick = exportDict;
+$("#wipe").onclick = ()=>{ if(confirm("Apagar TODOS os registros deste tablet? Exporte a tabela antes.") && confirm("Confirma? Esta ação não pode ser desfeita.")){ store.set(KEY, []); renderList(); updateCount(); } };
+$("#list").onclick = e=>{
+  const ed = e.target.dataset.ed, del = e.target.dataset.del;
+  if(ed){ const r = store.get(KEY, []).find(x=>x.id_registro===ed); editing = ed; writeForm(r); show("Form"); toast("Editando ficha"); }
+  if(del && confirm("Excluir este registro?")){ store.set(KEY, store.get(KEY, []).filter(x=>x.id_registro!==del)); renderList(); updateCount(); }
+};
+$("#saveCfg").onclick = ()=>{
+  const cfg = {};
+  document.querySelectorAll("#cfg input, #cfg select").forEach(el=>{ if(el.value.trim()) cfg[el.name] = el.value.trim(); });
+  if(store.set(CFGKEY, cfg)){ toast("Dados da unidade salvos"); if(!editing) writeForm(defaults()); }
+};
+</script>
+</body>
+</html>
