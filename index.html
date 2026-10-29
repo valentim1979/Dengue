@@ -48,6 +48,14 @@ th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-a
 .tablewrap{overflow-x:auto}
 #msg{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw}
 #msg.show{opacity:1}
+.inrow{display:flex;gap:8px}
+.inrow .btn{padding:8px 14px}
+.auto{position:relative}
+.sug{position:absolute;top:100%;left:0;right:0;z-index:4;background:var(--card);border:1px solid var(--accent);border-radius:8px;margin-top:2px;max-height:300px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.15)}
+.sug button{display:block;width:100%;text-align:left;font:inherit;background:none;color:var(--ink);border:0;border-bottom:1px solid var(--line);padding:12px;cursor:pointer}
+.sug button small{color:var(--muted);margin-left:6px}
+.sug .none{padding:12px;color:var(--muted);font-size:14px}
+.nolist{font-size:13px;color:var(--warn)}
 </style>
 </head>
 <body>
@@ -88,6 +96,17 @@ th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-a
       <p class="def">Preenchidos automaticamente em cada nova ficha.</p>
       <div class="grid" id="cfg"></div>
       <div class="actions"><button class="btn pri" id="saveCfg">Salvar</button></div>
+    </section>
+    <section>
+      <h2>Lista de ruas do município</h2>
+      <p class="def">Arquivo CSV ou texto com uma rua por linha, no formato <b>bairro;rua</b> (o bairro pode ficar vazio). Ao digitar o endereço na ficha, o formulário sugere os nomes desta lista.</p>
+      <p class="def" id="ruasInfo"></p>
+      <div class="f"><label class="t" for="ruasFile"><b>Importar arquivo</b></label><input type="file" id="ruasFile" accept=".csv,.txt,text/csv,text/plain"></div>
+      <div class="f" style="margin-top:10px"><label class="t" for="ruasText"><b>Ou cole a lista aqui</b></label><textarea id="ruasText" placeholder="Centro;Rua XV de Novembro&#10;Centro;Avenida Brasil"></textarea></div>
+      <div class="actions">
+        <button class="btn pri" id="saveRuas">Salvar lista</button>
+        <button class="btn" id="expRuas">Baixar lista atual</button>
+      </div>
     </section>
   </div>
 </main>
@@ -130,9 +149,9 @@ const SECTIONS = [
   {id:"id_mn_resi", n:18, label:"Município de residência", type:"text", req:true, cfg:true},
   {id:"cod_mn_resi", label:"Código IBGE (residência)", type:"text", cfg:true, pattern:"^\\d{6,7}$"},
   {id:"id_distrit", n:19, label:"Distrito", type:"text"},
-  {id:"nm_bairro", n:20, label:"Bairro", type:"text"},
-  {id:"nm_logrado", n:21, label:"Logradouro (rua, avenida...)", type:"text", wide:true},
-  {id:"nu_numero", n:22, label:"Número", type:"text"},
+  {id:"nm_bairro", n:20, label:"Bairro", type:"auto", src:"bairro"},
+  {id:"nm_logrado", n:21, label:"Logradouro (rua, avenida...)", type:"auto", src:"rua", wide:true},
+  {id:"nu_numero", n:22, label:"Número", type:"text", inputmode:"numeric", sn:true},
   {id:"nm_complem", n:23, label:"Complemento", type:"text"},
   {id:"nm_geo1", n:24, label:"Geo campo 1", type:"text"},
   {id:"nm_geo2", n:25, label:"Geo campo 2", type:"text"},
@@ -214,7 +233,7 @@ const SECTIONS = [
  ]},
 ];
 
-const KEY = "sinan_dengchik_registros", CFGKEY = "sinan_dengchik_unidade";
+const KEY = "sinan_dengchik_registros", CFGKEY = "sinan_dengchik_unidade", RUASKEY = "sinan_dengchik_ruas";
 const $ = s => document.querySelector(s);
 const store = {
   get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch(e){ return d } },
@@ -228,6 +247,7 @@ function columns(){
   for(const s of SECTIONS) for(const f of s.fields){
     if(f.type==="check") for(const [k,l] of f.items) cols.push([k, `${f.n}. ${f.label}: ${l}`, f.opts]);
     else cols.push([f.id, (f.n?f.n+". ":"")+f.label, f.opts]);
+    if(f.id==="nm_logrado") cols.push(["end_na_lista", "Bairro e logradouro encontrados na lista de ruas", [["1","Sim"],["2","Não"]]]);
   }
   return cols;
 }
@@ -240,7 +260,8 @@ function fieldHtml(f, prefix=""){
   const cls = `f${f.wide?" wide":""}${f.req?" req":""}`;
   const attrs = `id="${name}" name="${f.id}"${f.pattern?` pattern="${f.pattern}"`:""}${f.inputmode?` inputmode="${f.inputmode}"`:""}`;
   switch(f.type){
-    case "text": return `<div class="${cls}" data-f="${f.id}">${lab}<input type="text" ${attrs} autocomplete="off"></div>`;
+    case "text": return `<div class="${cls}" data-f="${f.id}">${lab}${f.sn?`<div class="inrow"><input type="text" ${attrs} autocomplete="off"><button type="button" class="btn" data-sn="${name}">S/N</button></div>`:`<input type="text" ${attrs} autocomplete="off">`}</div>`;
+    case "auto": return `<div class="${cls} auto" data-f="${f.id}">${lab}<input type="text" ${attrs} data-src="${f.src}" autocomplete="off" spellcheck="false"><div class="sug hidden"></div></div>`;
     case "num": return `<div class="${cls}" data-f="${f.id}">${lab}<input type="number" min="0" inputmode="numeric" ${attrs}></div>`;
     case "date": return `<div class="${cls}" data-f="${f.id}">${lab}<input type="date" ${attrs}></div>`;
     case "area": return `<div class="${cls}" data-f="${f.id}">${lab}<textarea ${attrs}></textarea></div>`;
@@ -353,6 +374,8 @@ function save(){
   if(errs.length){ toast(errs[0] + (errs.length>1?` (+${errs.length-1})`:"")); document.querySelector(".err")?.scrollIntoView({behavior:"smooth",block:"center"}); return; }
   const recs = store.get(KEY, []);
   const r = prune(raw);
+  const ruas = store.get(RUASKEY, []);
+  if(ruas.length && r.nm_logrado) r.end_na_lista = findRua(r.nm_bairro, r.nm_logrado) ? "1" : "2";
   if(editing){
     const i = recs.findIndex(x=>x.id_registro===editing);
     r.id_registro = editing; r.salvo_em = new Date().toISOString();
@@ -409,7 +432,81 @@ function show(view){
   window.scrollTo(0,0);
 }
 
+// Lista de ruas: [[bairro, rua], ...]
+const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/\s+/g," ").trim();
+function findRua(bairro, rua){
+  const b = norm(bairro), r = norm(rua);
+  return store.get(RUASKEY, []).some(([xb,xr]) => norm(xr)===r && (!b || !xb || norm(xb)===b));
+}
+function parseRuas(text){
+  const seen = new Set(), out = [];
+  for(let line of text.split(/\r?\n/)){
+    line = line.replace(/^﻿/,"").trim();
+    if(!line) continue;
+    const parts = line.split(/[;\t]/).map(s=>s.replace(/^"|"$/g,"").trim());
+    let [b, r] = parts.length>1 ? parts : ["", parts[0]];
+    if(!r || /^(rua|logradouro|nome)$/i.test(r) && /^bairro$/i.test(b)) continue;
+    const k = norm(b)+"|"+norm(r);
+    if(!seen.has(k)){ seen.add(k); out.push([b, r]); }
+  }
+  return out.sort((x,y)=>x[1].localeCompare(y[1],"pt-BR"));
+}
+function ruasInfo(){
+  const ruas = store.get(RUASKEY, []);
+  const nb = new Set(ruas.map(x=>norm(x[0])).filter(Boolean)).size;
+  $("#ruasInfo").textContent = ruas.length ? `Lista atual: ${ruas.length} logradouros em ${nb} bairros.` : "Nenhuma lista carregada. Sem lista, bairro e rua são digitados livremente.";
+}
+// Sugestões para bairro e rua; a rua é filtrada pelo bairro escolhido
+function suggest(input){
+  const box = input.parentElement.querySelector(".sug"), ruas = store.get(RUASKEY, []);
+  if(!ruas.length){ box.classList.add("hidden"); return; }
+  const q = norm(input.value), words = q.split(" ").filter(Boolean);
+  let items;
+  if(input.dataset.src==="bairro"){
+    items = [...new Map(ruas.filter(x=>x[0]).map(x=>[norm(x[0]), x[0]])).values()].sort((a,b)=>a.localeCompare(b,"pt-BR")).map(b=>[b,""]);
+  } else {
+    const b = norm($("#nm_bairro").value);
+    const byB = ruas.filter(x=>!b || !x[0] || norm(x[0])===b);
+    items = (byB.length ? byB : ruas).map(x=>[x[1], x[0]]);
+  }
+  const hits = items.filter(([t])=>words.every(w=>norm(t).includes(w))).slice(0, 40);
+  box.innerHTML = hits.length ? hits.map(([t,s])=>`<button type="button" data-v="${esc(t)}" data-b="${esc(s)}">${esc(t)}${s&&input.dataset.src==="rua"?`<small>${esc(s)}</small>`:""}</button>`).join("")
+    : `<div class="none">Não está na lista. O texto digitado será salvo assim mesmo.</div>`;
+  box.classList.remove("hidden");
+}
+
 build();
+document.querySelectorAll("#form .auto input").forEach(inp=>{
+  inp.addEventListener("input", ()=>suggest(inp));
+  inp.addEventListener("focus", ()=>suggest(inp));
+  inp.addEventListener("blur", ()=>setTimeout(()=>inp.parentElement.querySelector(".sug").classList.add("hidden"), 200));
+  inp.parentElement.querySelector(".sug").addEventListener("mousedown", e=>{
+    const bt = e.target.closest("button"); if(!bt) return;
+    e.preventDefault();
+    inp.value = bt.dataset.v;
+    if(inp.dataset.src==="rua" && bt.dataset.b && !$("#nm_bairro").value) $("#nm_bairro").value = bt.dataset.b;
+    inp.parentElement.querySelector(".sug").classList.add("hidden");
+    if(inp.dataset.src==="rua") $("#nu_numero").focus();
+  });
+});
+$("#form").addEventListener("click", e=>{ const id = e.target.dataset.sn; if(id){ $("#"+id).value = "S/N"; } });
+ruasInfo();
+$("#ruasFile").onchange = e=>{
+  const file = e.target.files[0]; if(!file) return;
+  const rd = new FileReader();
+  rd.onload = ()=>{ $("#ruasText").value = rd.result; toast("Arquivo lido. Confira e toque em Salvar lista."); };
+  rd.readAsText(file, "utf-8");
+};
+$("#saveRuas").onclick = ()=>{
+  const list = parseRuas($("#ruasText").value);
+  if(!list.length){ toast("Nenhuma rua encontrada no texto"); return; }
+  if(store.set(RUASKEY, list)){ $("#ruasText").value = ""; $("#ruasFile").value = ""; ruasInfo(); toast(`Lista salva: ${list.length} logradouros`); }
+};
+$("#expRuas").onclick = ()=>{
+  const ruas = store.get(RUASKEY, []);
+  if(!ruas.length){ toast("Nenhuma lista carregada"); return; }
+  download("lista_ruas.csv", ["bairro;rua", ...ruas.map(x=>x.map(csvCell).join(";"))].join("\r\n"));
+};
 writeForm(defaults());
 updateCount();
 $("#form").addEventListener("change", e=>{ if(["dt_nasc","dt_sin_pri"].includes(e.target.id)) autoAge(); refresh(); });

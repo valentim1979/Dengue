@@ -21,9 +21,28 @@ O formulário **não envia dados ao Sinan**. Ele gera uma tabela (CSV) para conf
 - Permite editar e excluir registros.
 - Exporta também um **dicionário de variáveis** (nome da coluna, descrição e códigos).
 
+## Lista de ruas (endereço padronizado)
+
+Para facilitar o georreferenciamento, bairro e logradouro podem ser escolhidos de uma lista de ruas do município.
+
+1. Prepare um arquivo CSV com uma linha por rua, no formato `bairro;rua`. Exemplo:
+   ```
+   bairro;rua
+   Centro;Rua Exemplo
+   Jardim Exemplo;Avenida Exemplo
+   ```
+2. Na aba **Unidade**, em **Lista de ruas do município**, importe o arquivo ou cole o texto e toque em **Salvar lista**.
+3. Na ficha, ao digitar 3 ou 4 letras do bairro ou da rua, aparecem as sugestões. A busca ignora acentos e maiúsculas, e a rua é filtrada pelo bairro escolhido.
+4. Se a rua não estiver na lista, o texto digitado é salvo assim mesmo.
+5. No número, o botão **S/N** marca imóvel sem número.
+
+A tabela exportada tem a coluna `end_na_lista`: `1` quando bairro e rua estão na lista e `2` quando foram digitados livremente. Use essa coluna para revisar os endereços antes de georreferenciar.
+
+A lista fica guardada no tablet. Cada tablet precisa importar a lista uma vez.
+
 ## Tabela exportada
 
-- Uma linha por notificação, uma coluna por variável (126 colunas).
+- Uma linha por notificação, uma coluna por variável (127 colunas).
 - Separador `;` e codificação UTF-8, para abrir direto no Excel em português.
 - Datas no formato `AAAA-MM-DD`.
 - Os nomes de coluna seguem, quando possível, os nomes usados nas bases do Sinan. Confira com o dicionário de dados oficial antes de cruzar bases.
