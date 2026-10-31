@@ -76,7 +76,19 @@ A lista importada fica guardada no tablet. Cada tablet precisa importar a lista 
 
 ## Relatórios em Python
 
-Scripts para a vigilância e para a população. Usam só `pandas` e `matplotlib` (`pip install -r requirements.txt`). Funcionam sem internet.
+Scripts para a vigilância e para a população. Usam só `pandas` e `matplotlib`. Funcionam sem internet.
+
+### Instalação (uma vez por computador)
+
+Na pasta do projeto, crie um ambiente virtual e instale as bibliotecas:
+
+```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt jupyterlab
+```
+
+Nas próximas vezes, basta `source .venv/bin/activate` dentro da pasta. Não é preciso instalar o conda.
 
 ### Onde colocar as tabelas
 
@@ -128,6 +140,17 @@ python3 scripts/boletim_publico.py dados/teste/
 ```
 
 As fichas de teste são fictícias ("Paciente Teste 001"...). Os endereços são sorteados da base do IBGE.
+
+### Notebook para análises livres
+
+`notebooks/exemplo_analise.ipynb` lê as fichas de `entrada/` (ou as fictícias de `dados/teste/`) e mostra exemplos: curva epidêmica, casos por bairro, tabela cruzada, filtro por sinais clínicos, tempo até a notificação, mapa e como salvar um recorte. Abra com:
+
+```
+source .venv/bin/activate
+jupyter lab
+```
+
+Antes de enviar um notebook ao GitHub, limpe as saídas (*Edit → Clear Outputs of All Cells*): elas podem conter dados de pacientes.
 
 ## Tabela exportada
 
