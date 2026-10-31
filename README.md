@@ -21,9 +21,43 @@ O formulário **não envia dados ao Sinan**. Ele gera uma tabela (CSV) para conf
 - Permite editar e excluir registros.
 - Exporta também um **dicionário de variáveis** (nome da coluna, descrição e códigos).
 
-## Lista de ruas (endereço padronizado)
+## Endereço e georreferenciamento (Uniflor-PR)
 
-Para facilitar o georreferenciamento, bairro e logradouro podem ser escolhidos de uma lista de ruas do município.
+O formulário já vem com a base de endereços de Uniflor (código IBGE 4128302) do **CNEFE do Censo 2022 do IBGE**: 41 combinações de bairro e rua, 1.163 pontos com coordenadas. Funciona sem internet.
+
+- Ao digitar o bairro ou a rua, aparecem sugestões dessa base.
+- Ao salvar, o formulário calcula a latitude e a longitude da residência a partir de bairro, rua e número. Abaixo do número aparece a precisão obtida.
+- A tabela exportada ganha as colunas `latitude`, `longitude`, `geo_metodo` e `geo_setor` (setor censitário do IBGE, útil para agrupar casos).
+
+Métodos da coordenada (`geo_metodo`):
+
+| Código | Método | Quando |
+|---|---|---|
+| 1 | Número exato | O número existe na base do IBGE para aquela rua |
+| 2 | Interpolado | Calculado entre os dois números vizinhos do mesmo lado da rua |
+| 3 | Número mais próximo | O número está fora da faixa conhecida da rua |
+| 4 | Centro da rua | Imóvel sem número (S/N) ou número em branco |
+| 5 | Centro do bairro | A rua não está na base, mas o bairro está |
+
+Sem rua nem bairro reconhecidos, o caso fica sem coordenada. Revise esses casos e os de método 4 e 5 antes de usar o mapa.
+
+Os nomes das ruas vêm do IBGE sem acentos (ex.: "Rua Orquidea"). A busca ignora acentos, então "orquídea" também encontra.
+
+### Atualizar a base
+
+Se o IBGE publicar nova versão, baixe o CSV do município em
+`https://ftp.ibge.gov.br/Cadastro_Nacional_de_Enderecos_para_Fins_Estatisticos/Censo_Demografico_2022/Arquivos_CNEFE/CSV/Municipio/41_PR/`
+e rode:
+
+```
+python3 scripts/gerar_base_enderecos.py dados/cnefe_2022_4128302_uniflor.csv index.html
+```
+
+O script atualiza a base dentro do `index.html` e o arquivo `dados/lista_ruas.csv`. Serve também para outro município: basta usar o CSV dele.
+
+### Lista de ruas própria (opcional)
+
+Se a prefeitura tiver um cadastro de logradouros mais atual, ele pode substituir as sugestões. As coordenadas continuam vindo da base do IBGE.
 
 1. Prepare um arquivo CSV com uma linha por rua, no formato `bairro;rua`. Exemplo:
    ```
@@ -38,11 +72,11 @@ Para facilitar o georreferenciamento, bairro e logradouro podem ser escolhidos d
 
 A tabela exportada tem a coluna `end_na_lista`: `1` quando bairro e rua estão na lista e `2` quando foram digitados livremente. Use essa coluna para revisar os endereços antes de georreferenciar.
 
-A lista fica guardada no tablet. Cada tablet precisa importar a lista uma vez.
+A lista importada fica guardada no tablet. Cada tablet precisa importar a lista uma vez. O botão **Voltar à lista do IBGE** desfaz a importação.
 
 ## Tabela exportada
 
-- Uma linha por notificação, uma coluna por variável (127 colunas).
+- Uma linha por notificação, uma coluna por variável (131 colunas).
 - Separador `;` e codificação UTF-8, para abrir direto no Excel em português.
 - Datas no formato `AAAA-MM-DD`.
 - Os nomes de coluna seguem, quando possível, os nomes usados nas bases do Sinan. Confira com o dicionário de dados oficial antes de cruzar bases.
@@ -50,5 +84,5 @@ A lista fica guardada no tablet. Cada tablet precisa importar a lista uma vez.
 ## Cuidados
 
 - Os registros ficam guardados **somente no navegador do tablet** (localStorage). Limpar os dados do navegador, usar aba anônima ou trocar de navegador apaga ou esconde os registros. **Exporte a tabela ao fim de cada turno.**
-- A tabela contém dados pessoais de saúde (nome, CNS, endereço). Guarde e transmita conforme a LGPD e as normas da secretaria de saúde.
+- A tabela contém dados pessoais de saúde (nome, CNS, endereço e coordenadas da residência). Para mapas que vão circular, mostre os casos agrupados por setor censitário, quadra ou bairro, não pontos exatos. Guarde e transmita conforme a LGPD e as normas da secretaria de saúde.
 - Os campos marcados como obrigatórios foram definidos a partir da ficha em papel. Ajuste conforme a orientação da vigilância local.
