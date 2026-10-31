@@ -4,3 +4,5 @@ saida/
 notificacoes_*.csv
 dados/teste/
 __pycache__/
+.venv/
+.ipynb_checkpoints/
