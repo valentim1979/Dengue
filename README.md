@@ -74,6 +74,61 @@ A tabela exportada tem a coluna `end_na_lista`: `1` quando bairro e rua estão n
 
 A lista importada fica guardada no tablet. Cada tablet precisa importar a lista uma vez. O botão **Voltar à lista do IBGE** desfaz a importação.
 
+## Relatórios em Python
+
+Scripts para a vigilância e para a população. Usam só `pandas` e `matplotlib` (`pip install -r requirements.txt`). Funcionam sem internet.
+
+### Onde colocar as tabelas
+
+Copie os CSV exportados de cada tablet para a pasta `entrada/`. Fichas repetidas entre arquivos (por exemplo, a mesma tabela exportada duas vezes) são contadas uma vez; fica a versão gravada por último.
+
+As pastas `entrada/` e `saida/` estão no `.gitignore` e **não vão para o GitHub**, porque contêm dados de pacientes.
+
+### Relatório da vigilância (uso interno)
+
+```
+python3 scripts/relatorio_epidemiologico.py entrada/
+```
+
+Gera em `saida/interno/`:
+
+- `relatorio_AAAA-MM-DD.html`: resumo, curva epidêmica por semana epidemiológica, casos por bairro (por 1.000 domicílios do CNEFE), sexo e faixa etária, sinais clínicos, oportunidade da notificação, lista de bloqueio, áreas de atenção, mapa e qualidade do georreferenciamento.
+- `lista_bloqueio.csv`: casos prováveis com início dos sintomas nos últimos 14 dias, com endereço e coordenadas, para a equipe de endemias.
+- `areas_atencao.csv`: círculos de 200 m centrados num caso com pelo menos 3 casos prováveis dos últimos 14 dias.
+- `mapa_casos.html`: mapa interativo dos casos (precisa de internet para o mapa de fundo).
+- `casos_por_se.csv` e `casos_por_bairro.csv`.
+
+Opções: `--data-ref AAAA-MM-DD`, `--dias 14`, `--raio 200`, `--minimo 3`, `--populacao N` (para incidência por 100 mil habitantes). Veja todas com `--help`.
+
+Definições usadas:
+
+- **Caso provável**: toda ficha, exceto as descartadas (classificação 5).
+- **Confirmado**: classificação 10, 11, 12 ou 13.
+- **Semana epidemiológica**: de domingo a sábado; a semana 1 é a que contém 4 de janeiro. Conta pela data de início dos sintomas (ou de notificação, se faltar).
+
+### Boletim para a população
+
+```
+python3 scripts/boletim_publico.py entrada/ --contato "Unidade de Saúde: (44) 0000-0000"
+```
+
+Gera em `saida/publico/`:
+
+- `boletim_AAAA-MM-DD.png`: imagem 1080x1350 para WhatsApp, Instagram e mural.
+- `boletim_AAAA-MM-DD.html`: página com a imagem e os números em texto.
+
+O boletim **não tem nomes, endereços nem pontos no mapa**. Bairros com menos de 5 casos prováveis são somados em "Outras localidades" (ajuste com `--minimo`). Revise o texto de prevenção com a equipe antes de divulgar.
+
+### Testar sem dados reais
+
+```
+python3 scripts/gerar_dados_teste.py 150
+python3 scripts/relatorio_epidemiologico.py dados/teste/
+python3 scripts/boletim_publico.py dados/teste/
+```
+
+As fichas de teste são fictícias ("Paciente Teste 001"...). Os endereços são sorteados da base do IBGE.
+
 ## Tabela exportada
 
 - Uma linha por notificação, uma coluna por variável (131 colunas).

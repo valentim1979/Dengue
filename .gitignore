@@ -1,0 +1,6 @@
+# Dados de pacientes e resultados: nunca enviar ao GitHub (LGPD)
+entrada/
+saida/
+notificacoes_*.csv
+dados/teste/
+__pycache__/
