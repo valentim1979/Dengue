@@ -143,6 +143,8 @@ As fichas de teste são fictícias ("Paciente Teste 001"...). Os endereços são
 
 ### Notebook para análises livres
 
+**Atalho no Mac:** clique duas vezes em `abrir_jupyter.command` (na pasta do projeto). Ele abre o Terminal, ativa o ambiente `.venv` (ou cria e instala as bibliotecas na primeira vez) e abre o Jupyter Lab no navegador, na pasta `notebooks/`. Se o Mac bloquear o arquivo, clique com o botão direito, escolha **Abrir** e confirme. Para encerrar o Jupyter, feche a janela do Terminal.
+
 `notebooks/exemplo_analise.ipynb` lê as fichas de `entrada/` (ou as fictícias de `dados/teste/`) e mostra exemplos: curva epidêmica, casos por bairro, tabela cruzada, filtro por sinais clínicos, tempo até a notificação, mapa e como salvar um recorte. Abra com:
 
 ```
