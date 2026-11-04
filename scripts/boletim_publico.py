@@ -7,13 +7,13 @@ Opções:
     --data-ref AAAA-MM-DD  data de referência (padrão: hoje)
     --semanas N            semanas mostradas no gráfico (padrão: 12)
     --minimo N             bairros com menos casos que isso são somados em "Outras localidades" (padrão: 5)
-    --municipio TEXTO      nome no título (padrão: Uniflor-PR)
+    --municipio CODIGO     código IBGE do município de residência (padrão: o mais frequente nas fichas)
     --contato TEXTO        telefone ou endereço da unidade de saúde, impresso no rodapé
     --saida PASTA          pasta de saída (padrão: saida/publico)
 
 Gera:
-    boletim_AAAA-MM-DD.png   imagem 1080x1350 para WhatsApp, Instagram e mural
-    boletim_AAAA-MM-DD.html  página com a imagem e os números em texto
+    boletim_CODIGO_AAAA-MM-DD.png   imagem 1080x1350 para WhatsApp, Instagram e mural
+    boletim_CODIGO_AAAA-MM-DD.html  página com a imagem e os números em texto
 """
 import argparse
 import base64
@@ -26,7 +26,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from comum import RAIZ, bairros_cnefe, inicio_semana, ler_fichas, padronizar_bairro, semana_epi
+from comum import (RAIZ, bairros_cnefe, carregar_base, escolher_municipio, inicio_semana, ler_fichas,
+                   padronizar_bairro, semana_epi)
 
 VERDE, LARANJA, CINZA, TINTA = "#0b6e4f", "#d0621f", "#5b6670", "#1d2329"
 PREVENCAO = [
@@ -121,16 +122,18 @@ def main():
     ap.add_argument("--data-ref", type=date.fromisoformat, default=date.today())
     ap.add_argument("--semanas", type=int, default=12)
     ap.add_argument("--minimo", type=int, default=5)
-    ap.add_argument("--municipio", default="Uniflor-PR")
+    ap.add_argument("--municipio", help="código IBGE (padrão: o mais frequente nas fichas)")
     ap.add_argument("--contato", default="")
     ap.add_argument("--saida", type=Path, default=RAIZ / "saida" / "publico")
     a = ap.parse_args()
 
     df, _ = ler_fichas(a.entradas)
-    df["bairro"] = padronizar_bairro(df, bairros_cnefe())
+    df, cod, nome = escolher_municipio(df, a.municipio)
+    df["bairro"] = padronizar_bairro(df, bairros_cnefe(carregar_base(cod)))
+    a.municipio = f"{nome}-PR"
     numeros, curva, bairros, n_prov = agregar(df, a.data_ref, a.semanas, a.minimo)
     a.saida.mkdir(parents=True, exist_ok=True)
-    png = a.saida / f"boletim_{a.data_ref.isoformat()}.png"
+    png = a.saida / f"boletim_{cod}_{a.data_ref.isoformat()}.png"
     imagem(numeros, curva, bairros, a.municipio, a.data_ref, a.contato, png)
 
     ano, se = semana_epi(a.data_ref)
@@ -141,7 +144,7 @@ def main():
         "Elimine água parada: vire garrafas e baldes, tampe caixas d'água, limpe calhas e coloque areia nos pratinhos de vasos.",
         "Com febre, dor no corpo, dor atrás dos olhos ou manchas na pele, procure a unidade de saúde. Não tome remédio por conta própria.",
         "Dor forte na barriga, vômitos que não param ou sangramento: procure atendimento imediatamente."])
-    (a.saida / f"boletim_{a.data_ref.isoformat()}.html").write_text(f"""<!doctype html><html lang="pt-BR"><head>
+    (a.saida / f"boletim_{cod}_{a.data_ref.isoformat()}.html").write_text(f"""<!doctype html><html lang="pt-BR"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Boletim Dengue – {html.escape(a.municipio)}</title>
 <style>body{{font:16px/1.5 system-ui,sans-serif;max-width:760px;margin:0 auto;padding:16px;color:#1d2329}}

@@ -1,0 +1,11 @@
+{
+  "name": "Notificação Dengue/Chikungunya",
+  "short_name": "Dengue",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#0b6e4f",
+  "lang": "pt-BR",
+  "icons": [{"src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}
