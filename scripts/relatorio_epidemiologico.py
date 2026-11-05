@@ -12,14 +12,15 @@ Opções:
     --raio M               raio em metros de cada área de atenção (padrão: 200)
     --minimo N             casos para formar área de atenção (padrão: 3)
     --populacao N          população do município, para calcular incidência por 100 mil hab.
+    --municipio CODIGO     código IBGE do município de residência (padrão: o mais frequente nas fichas)
     --saida PASTA          pasta de saída (padrão: saida/interno)
 
 Gera na pasta de saída:
-    relatorio_AAAA-MM-DD.html   relatório com gráficos e tabelas
-    mapa_casos.html             mapa dos casos (precisa de internet para o mapa de fundo)
-    lista_bloqueio.csv          casos prováveis recentes com endereço, para a equipe de endemias
-    areas_atencao.csv           grupos de casos próximos no espaço e no tempo
-    casos_por_se.csv, casos_por_bairro.csv
+    relatorio_CODIGO_AAAA-MM-DD.html   relatório com gráficos e tabelas
+    mapa_casos_CODIGO.html             mapa dos casos (precisa de internet para o mapa de fundo)
+    lista_bloqueio_CODIGO.csv          casos prováveis recentes com endereço, para a equipe de endemias
+    areas_atencao_CODIGO.csv           grupos de casos próximos no espaço e no tempo
+    casos_por_se_CODIGO.csv, casos_por_bairro_CODIGO.csv
 """
 import argparse
 import base64
@@ -35,8 +36,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from comum import (CLASSIFICACAO, CNEFE_PADRAO, FAIXAS, GEO_METODO, RAIZ, SINAIS, bairros_cnefe, distancia_m,
-                   inicio_semana, ler_fichas, padronizar_bairro, semana_epi)
+from comum import (CLASSIFICACAO, FAIXAS, GEO_METODO, RAIZ, SINAIS, bairros_cnefe, carregar_base, distancia_m,
+                   escolher_municipio, inicio_semana, ler_fichas, padronizar_bairro, semana_epi)
 
 CORES = {"Em investigação": "#9aa5ae", "Descartado": "#d5dbe0", "Dengue": "#e8a33d",
          "Dengue com sinais de alarme": "#d0621f", "Dengue grave": "#a3201c", "Chikungunya": "#6a4fb3"}
@@ -146,24 +147,23 @@ def areas_atencao(rec, raio, minimo):
     return t.sort_values("casos", ascending=False).reset_index(drop=True)
 
 
-def mapa_estatico(df, areas, raio):
-    """Mapa sem internet: endereços do CNEFE em cinza ao fundo, casos coloridos por classificação.
-    À esquerda o município; à direita a área urbana (localidade com mais endereços) ampliada."""
-    import csv
+def mapa_estatico(df, areas, raio, base):
+    """Mapa sem internet: endereços do IBGE em cinza ao fundo, casos coloridos por classificação.
+    À esquerda o município; à direita a área com mais casos, ampliada."""
     import math
-    from collections import Counter
-    with open(CNEFE_PADRAO, encoding="utf-8") as f:
-        fundo = [(float(r["LONGITUDE"]), float(r["LATITUDE"]), r["DSC_LOCALIDADE"]) for r in csv.DictReader(f, delimiter=";")]
+    fundo_lon = [p[3] for p in base["pontos"]]
+    fundo_lat = [p[2] for p in base["pontos"]]
     pts = df.dropna(subset=["latitude", "longitude"])
     if pts.empty:
         return "<p>Nenhum caso com coordenada.</p>"
-    urbana = Counter(x[2] for x in fundo).most_common(1)[0][0]
-    caixas = [(min(x[0] for x in fundo), max(x[0] for x in fundo), min(x[1] for x in fundo), max(x[1] for x in fundo)),
-              tuple(f(x[i] for x in fundo if x[2] == urbana) for i in (0, 1) for f in (min, max))]
-    fig, eixos = plt.subplots(1, 2, figsize=(13, 6.5), gridspec_kw={"width_ratios": [1, 1]})
-    for ax, (lon0, lon1, lat0, lat1), titulo in zip(eixos, caixas, ["Município", f"Área urbana ({urbana.title()})"]):
-        mx, my = (lon1 - lon0) * .05 + .0005, (lat1 - lat0) * .05 + .0005
-        ax.scatter([x[0] for x in fundo], [x[1] for x in fundo], s=3, color="#c9cfd4", zorder=1, label="Endereços (IBGE)")
+    q = lambda s, a: float(s.quantile(a))
+    caixas = [(min(fundo_lon), max(fundo_lon), min(fundo_lat), max(fundo_lat)),
+              (q(pts["longitude"], .1), q(pts["longitude"], .9), q(pts["latitude"], .1), q(pts["latitude"], .9))]
+    fig, eixos = plt.subplots(1, 2, figsize=(13, 6.5))
+    for ax, (lon0, lon1, lat0, lat1), titulo in zip(eixos, caixas, ["Município", "Área com mais casos"]):
+        mx, my = (lon1 - lon0) * .08 + .002, (lat1 - lat0) * .08 + .002
+        ax.scatter(fundo_lon, fundo_lat, s=2 if len(fundo_lon) > 20000 else 3, color="#c9cfd4", zorder=1,
+                   label="Endereços (IBGE)", rasterized=True)
         for c in reversed(ORDEM):
             g = pts[pts["classificacao"] == c]
             if len(g):
@@ -185,7 +185,7 @@ def mapa_estatico(df, areas, raio):
     return png(fig)
 
 
-def mapa(df, areas, raio, destino):
+def mapa(df, areas, raio, destino, centro):
     pts = df.dropna(subset=["latitude", "longitude"])
     dados = [{"lat": r.latitude, "lon": r.longitude, "cor": CORES.get(r.classificacao, "#888"),
               "txt": f"{html.escape(r.nm_pacient)}<br>{html.escape(r.nm_logrado)}, {html.escape(r.nu_numero)} – {html.escape(r.bairro)}"
@@ -207,7 +207,7 @@ const m=L.map('m');L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}
 const g=L.featureGroup().addTo(m);
 P.forEach(p=>L.circleMarker([p.lat,p.lon],{{radius:6,color:'#222',weight:1,fillColor:p.cor,fillOpacity:.9}}).bindPopup(p.txt).addTo(g));
 A.forEach(a=>L.circle([a.lat,a.lon],{{radius:{raio},color:'#a3201c',dashArray:'6',fill:false}}).bindPopup(a.n+' casos').addTo(g));
-if(P.length) m.fitBounds(g.getBounds().pad(.1)); else m.setView([-23.085,-52.159],14);
+if(P.length) m.fitBounds(g.getBounds().pad(.1)); else m.setView([{centro[0]},{centro[1]}],13);
 </script></body></html>""", encoding="utf-8")
 
 
@@ -219,11 +219,14 @@ def main():
     ap.add_argument("--raio", type=float, default=200)
     ap.add_argument("--minimo", type=int, default=3)
     ap.add_argument("--populacao", type=int)
+    ap.add_argument("--municipio", help="código IBGE do município de residência (padrão: o mais frequente nas fichas)")
     ap.add_argument("--saida", type=Path, default=RAIZ / "saida" / "interno")
     a = ap.parse_args()
 
     df, arquivos = ler_fichas(a.entradas)
-    bairros = bairros_cnefe()
+    df, cod, nome = escolher_municipio(df, a.municipio)
+    base = carregar_base(cod)
+    bairros = bairros_cnefe(base)
     df["bairro"] = padronizar_bairro(df, bairros)
     a.saida.mkdir(parents=True, exist_ok=True)
     ref, (ano_ref, se_ref) = a.data_ref, semana_epi(a.data_ref)
@@ -266,14 +269,15 @@ def main():
                     "latitude", "longitude", "geo_setor"]].sort_values(["bairro", "nm_logrado", "nu_numero"])
     areas = areas_atencao(rec, a.raio, a.minimo)
 
-    tab_se.to_csv(a.saida / "casos_por_se.csv", sep=";", encoding="utf-8-sig")
-    tab_bairro.to_csv(a.saida / "casos_por_bairro.csv", sep=";", index=False, encoding="utf-8-sig")
-    bloqueio.to_csv(a.saida / "lista_bloqueio.csv", sep=";", index=False, encoding="utf-8-sig")
-    areas.to_csv(a.saida / "areas_atencao.csv", sep=";", index=False, encoding="utf-8-sig")
-    mapa(df, areas, a.raio, a.saida / "mapa_casos.html")
+    tab_se.to_csv(a.saida / f"casos_por_se_{cod}.csv", sep=";", encoding="utf-8-sig")
+    tab_bairro.to_csv(a.saida / f"casos_por_bairro_{cod}.csv", sep=";", index=False, encoding="utf-8-sig")
+    bloqueio.to_csv(a.saida / f"lista_bloqueio_{cod}.csv", sep=";", index=False, encoding="utf-8-sig")
+    areas.to_csv(a.saida / f"areas_atencao_{cod}.csv", sep=";", index=False, encoding="utf-8-sig")
+    mapa(df, areas, a.raio, a.saida / f"mapa_casos_{cod}.html",
+         (round(bairros["lat"].mean(), 5), round(bairros["lon"].mean(), 5)))
 
     corpo = f"""
-<h1>Dengue e Chikungunya – Uniflor-PR</h1>
+<h1>Dengue e Chikungunya – {html.escape(nome)}-PR</h1>
 <p class="aviso">USO INTERNO. Este relatório contém dados pessoais de saúde. Não divulgar.</p>
 <p>Data de referência: {ref:%d/%m/%Y} (SE {se_ref}/{ano_ref}). Fichas lidas de {len(arquivos)} arquivo(s).</p>
 <h2>Resumo</h2>{tabela(resumo)}
@@ -285,17 +289,17 @@ def main():
 <h2>Sinais clínicos entre os casos prováveis</h2>{tabela(sinais)}
 <h2>Oportunidade da notificação</h2>{tabela(oportunidade)}
 <h2>Lista de bloqueio – início dos sintomas nos últimos {a.dias} dias</h2>
-<p class="nota">{len(bloqueio)} casos prováveis. Arquivo: lista_bloqueio.csv</p>{tabela(bloqueio)}
+<p class="nota">{len(bloqueio)} casos prováveis. Arquivo: lista_bloqueio_{cod}.csv</p>{tabela(bloqueio)}
 <h2>Áreas de atenção</h2>
-{mapa_estatico(df, areas, a.raio)}
-<p class="nota">Mapa com todos os casos. Tracejado: áreas de atenção. Versão interativa: mapa_casos.html (precisa de internet).</p>
+{mapa_estatico(df, areas, a.raio, base)}
+<p class="nota">Mapa com todos os casos. Tracejado: áreas de atenção. Versão interativa: mapa_casos_{cod}.html (precisa de internet).</p>
 <p class="nota">Círculos de {a.raio:.0f} m de raio, centrados num caso, com pelo menos {a.minimo} casos prováveis dos últimos {a.dias} dias.
-Veja no arquivo mapa_casos.html.</p>
+Veja no arquivo mapa_casos_{cod}.html.</p>
 {tabela(areas) if len(areas) else "<p>Nenhuma área com esses critérios.</p>"}
 <h2>Qualidade do georreferenciamento</h2>{tabela(geo)}
 {"<h3>Fichas sem coordenada</h3>" + tabela(sem_coord) if len(sem_coord) else ""}
 """
-    destino = a.saida / f"relatorio_{ref.isoformat()}.html"
+    destino = a.saida / f"relatorio_{cod}_{ref.isoformat()}.html"
     destino.write_text(f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Relatório Dengue – uso interno</title>
 <style>body{{font:15px/1.45 system-ui,sans-serif;max-width:980px;margin:0 auto;padding:16px;color:#1d2329}}

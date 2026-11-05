@@ -1,86 +1,85 @@
-# Dengue – Ficha de notificação para tablet
+# Dengue – Ficha de notificação para tablet (15ª Regional de Saúde – PR)
 
-Formulário digital baseado na **Ficha de Investigação Dengue e Febre de Chikungunya do Sinan Online** (SVS, versão 14/03/2016). Serve para coletar os dados no tablet durante epidemias, quando o volume de casos atrasa a digitação.
+Formulário digital baseado na **Ficha de Investigação Dengue e Febre de Chikungunya do Sinan Online** (SVS, versão 14/03/2016), para coletar dados no tablet durante epidemias. Atende os 30 municípios da 15ª Regional de Saúde (Maringá).
 
-O formulário **não envia dados ao Sinan**. Ele gera uma tabela (CSV) para conferência e digitação no Sinan Online ou para análise.
+O formulário **não envia dados ao Sinan**. As fichas vão para uma planilha Google da vigilância, para conferência, digitação no Sinan Online e análise.
 
-## Como usar
+**Link do formulário:** `https://valentim1979.github.io/Dengue/` (funciona depois de ativar o GitHub Pages; veja abaixo).
 
-1. Abra o arquivo `index.html` no navegador do tablet (Chrome, Edge ou Safari). Não precisa de internet depois de aberto.
-2. Na aba **Unidade**, preencha uma vez os dados fixos (UF, município, unidade, CNES, investigador). Eles entram automaticamente em cada ficha nova.
-3. Na aba **Nova ficha**, preencha e toque em **Salvar ficha**.
-4. Na aba **Registros**, toque em **Baixar tabela (CSV)**. O arquivo abre no Excel, LibreOffice ou Google Planilhas.
+## Para as unidades de saúde
+
+1. Abra o link no navegador do tablet (Chrome, Edge ou Safari), com internet.
+2. Opcional: no menu do navegador, toque em **Adicionar à tela inicial**. O formulário vira um ícone, como um aplicativo.
+3. Na aba **Unidade**, preencha uma vez:
+   - município de notificação (escolha na lista), unidade, CNES e investigador;
+   - município de residência mais comum (o da própria unidade);
+   - **endereço do envio** e **chave de envio**, fornecidos pela vigilância.
+   Toque em **Salvar** e em **Salvar e testar**. Depois toque em **Baixar base do município da unidade**.
+4. Na aba **Nova ficha**, preencha e toque em **Salvar ficha**.
+
+Depois da primeira abertura com internet, o formulário funciona **sem internet**. Fichas salvas sem conexão ficam na fila e são enviadas sozinhas quando a internet volta (ou pelo botão **Enviar pendentes agora**). A aba **Registros** mostra o que já foi enviado.
+
+Mesmo com o envio automático, exporte de vez em quando a tabela (**Registros → Baixar tabela (CSV)**) como cópia de segurança. Limpar os dados do navegador apaga as fichas do tablet.
 
 ## O que o formulário faz
 
-- Campos numerados de 1 a 71, iguais à ficha em papel.
-- Respostas gravadas com os códigos do Sinan (ex.: sexo `M/F/I`, raça `1–5, 9`, sinais clínicos `1=Sim, 2=Não`).
-- Mostra só o que se aplica: dados de internação só se houve hospitalização; local de infecção só se o caso não é autóctone; blocos de sinais de alarme e dengue grave só para as classificações 11 e 12; data do óbito só se a evolução for óbito.
-- Calcula a idade a partir da data de nascimento.
-- Confere campos obrigatórios, datas no futuro, sintomas antes da notificação, CNS com 15 dígitos, CEP e CNES.
-- Permite editar e excluir registros.
-- Exporta também um **dicionário de variáveis** (nome da coluna, descrição e códigos).
+- Campos 1 a 71 da ficha, gravados com os códigos do Sinan (ex.: sexo `M/F/I`, raça `1–5, 9`, sinais `1=Sim, 2=Não`).
+- Mostra só o que se aplica: internação, local de infecção, sinais de alarme e dengue grave, data do óbito.
+- Calcula a idade pela data de nascimento e confere campos obrigatórios, datas e formatos (CNS, CEP, CNES).
+- Município de notificação e de residência com lista dos 30 municípios da 15ª RS e código IBGE automático.
+- Bairro e rua com sugestões da base do IBGE do município de residência; número com botão **S/N**.
+- Calcula latitude e longitude da residência ao salvar.
 
-## Endereço e georreferenciamento (Uniflor-PR)
+## Endereço e georreferenciamento
 
-O formulário já vem com a base de endereços de Uniflor (código IBGE 4128302) do **CNEFE do Censo 2022 do IBGE**: 41 combinações de bairro e rua, 1.163 pontos com coordenadas. Funciona sem internet.
+As bases de endereços ficam em `bases/<código IBGE>.json`, geradas do **CNEFE do Censo 2022 (IBGE)**. O tablet baixa só a base do município de residência informado e a guarda para uso sem internet. A de Maringá tem 5,5 MB; as demais, menos de 2 MB.
 
-- Ao digitar o bairro ou a rua, aparecem sugestões dessa base.
-- Ao salvar, o formulário calcula a latitude e a longitude da residência a partir de bairro, rua e número. Abaixo do número aparece a precisão obtida.
-- A tabela exportada ganha as colunas `latitude`, `longitude`, `geo_metodo` e `geo_setor` (setor censitário do IBGE, útil para agrupar casos).
+Colunas de georreferenciamento na tabela: `latitude`, `longitude`, `geo_metodo`, `geo_setor` (setor censitário) e `end_na_lista`.
 
-Métodos da coordenada (`geo_metodo`):
-
-| Código | Método | Quando |
+| `geo_metodo` | Método | Quando |
 |---|---|---|
 | 1 | Número exato | O número existe na base do IBGE para aquela rua |
-| 2 | Interpolado | Calculado entre os dois números vizinhos do mesmo lado da rua |
+| 2 | Interpolado | Entre os dois números vizinhos do mesmo lado da rua |
 | 3 | Número mais próximo | O número está fora da faixa conhecida da rua |
 | 4 | Centro da rua | Imóvel sem número (S/N) ou número em branco |
 | 5 | Centro do bairro | A rua não está na base, mas o bairro está |
 
-Sem rua nem bairro reconhecidos, o caso fica sem coordenada. Revise esses casos e os de método 4 e 5 antes de usar o mapa.
+Residência fora da 15ª RS, rua e bairro não encontrados, ou base não baixada: o caso fica sem coordenada. Os nomes das ruas vêm do IBGE sem acentos; a busca ignora acentos.
 
-Os nomes das ruas vêm do IBGE sem acentos (ex.: "Rua Orquidea"). A busca ignora acentos, então "orquídea" também encontra.
-
-### Atualizar a base
-
-Se o IBGE publicar nova versão, baixe o CSV do município em
-`https://ftp.ibge.gov.br/Cadastro_Nacional_de_Enderecos_para_Fins_Estatisticos/Censo_Demografico_2022/Arquivos_CNEFE/CSV/Municipio/41_PR/`
-e rode:
+Para incluir outro município ou atualizar as bases, baixe o CSV do município em
+`https://ftp.ibge.gov.br/Cadastro_Nacional_de_Enderecos_para_Fins_Estatisticos/Censo_Demografico_2022/Arquivos_CNEFE/CSV/Municipio/41_PR/`, descompacte e rode:
 
 ```
-python3 scripts/gerar_base_enderecos.py dados/cnefe_2022_4128302_uniflor.csv index.html
+python3 scripts/gerar_base_enderecos.py PASTA_COM_OS_CSV
 ```
 
-O script atualiza a base dentro do `index.html` e o arquivo `dados/lista_ruas.csv`. Serve também para outro município: basta usar o CSV dele.
+## Para a vigilância: publicar o link (GitHub Pages)
 
-### Lista de ruas própria (opcional)
+No repositório: **Settings → Pages → Source: Deploy from a branch → Branch: main, pasta / (root) → Save**. Em alguns minutos o link `https://valentim1979.github.io/Dengue/` passa a funcionar.
 
-Se a prefeitura tiver um cadastro de logradouros mais atual, ele pode substituir as sugestões. As coordenadas continuam vindo da base do IBGE.
+O repositório é público, mas contém só o código e a base de endereços do IBGE (dados públicos). **Nenhuma ficha de paciente vai para o GitHub.**
 
-1. Prepare um arquivo CSV com uma linha por rua, no formato `bairro;rua`. Exemplo:
-   ```
-   bairro;rua
-   Centro;Rua Exemplo
-   Jardim Exemplo;Avenida Exemplo
-   ```
-2. Na aba **Unidade**, em **Lista de ruas do município**, importe o arquivo ou cole o texto e toque em **Salvar lista**.
-3. Na ficha, ao digitar 3 ou 4 letras do bairro ou da rua, aparecem as sugestões. A busca ignora acentos e maiúsculas, e a rua é filtrada pelo bairro escolhido.
-4. Se a rua não estiver na lista, o texto digitado é salvo assim mesmo.
-5. No número, o botão **S/N** marca imóvel sem número.
+## Para a vigilância: planilha que recebe as fichas
 
-A tabela exportada tem a coluna `end_na_lista`: `1` quando bairro e rua estão na lista e `2` quando foram digitados livremente. Use essa coluna para revisar os endereços antes de georreferenciar.
+As fichas chegam numa planilha Google, numa pasta do Drive da vigilância, por meio de um script (Google Apps Script). Faça uma vez:
 
-A lista importada fica guardada no tablet. Cada tablet precisa importar a lista uma vez. O botão **Voltar à lista do IBGE** desfaz a importação.
+1. No Google Drive, crie (ou escolha) a pasta das respostas e, dentro dela, uma **planilha Google** nova (ex.: "Fichas dengue 15ª RS").
+2. Na planilha: **Extensões → Apps Script**. Apague o conteúdo e cole o arquivo [`apps_script/Code.gs`](apps_script/Code.gs). Salve.
+3. No Apps Script: **Configurações do projeto** (engrenagem) → **Propriedades do script** → **Adicionar propriedade**: nome `CHAVE`, valor = uma senha longa (20 ou mais letras e números). Salve.
+4. **Implantar → Nova implantação** → tipo **App da Web**. *Executar como:* **Eu**. *Quem pode acessar:* **Qualquer pessoa**. Clique em **Implantar** e autorize.
+5. Copie a **URL do app da Web** (termina em `/exec`). Envie a URL e a `CHAVE` às unidades por um canal seguro (não publique a chave).
+
+As fichas aparecem na aba **fichas** da planilha, uma linha por ficha, com a coluna `recebido_em`. Uma ficha editada no tablet e reenviada substitui a linha anterior (mesmo `id_registro`). Uma ficha excluída no tablet **não** é apagada da planilha.
+
+Se o script for alterado, publique de novo em **Implantar → Gerenciar implantações → editar → Nova versão**, para manter a mesma URL.
+
+**LGPD:** a planilha contém dados pessoais de saúde. Restrinja o compartilhamento da pasta à equipe da vigilância e confirme com o responsável pela proteção de dados se o uso do Google Drive é permitido.
 
 ## Relatórios em Python
 
-Scripts para a vigilância e para a população. Usam só `pandas` e `matplotlib`. Funcionam sem internet.
+Usam só `pandas` e `matplotlib` e funcionam sem internet.
 
 ### Instalação (uma vez por computador)
-
-Na pasta do projeto, crie um ambiente virtual e instale as bibliotecas:
 
 ```
 python3 -m venv .venv
@@ -88,81 +87,67 @@ source .venv/bin/activate
 pip install -r requirements.txt jupyterlab
 ```
 
-Nas próximas vezes, basta `source .venv/bin/activate` dentro da pasta. Não é preciso instalar o conda.
+No Mac, há o atalho `abrir_jupyter.command` (clique duplo), que faz isso e abre o Jupyter Lab.
 
-### Onde colocar as tabelas
+### De onde vêm as fichas
 
-Copie os CSV exportados de cada tablet para a pasta `entrada/`. Fichas repetidas entre arquivos (por exemplo, a mesma tabela exportada duas vezes) são contadas uma vez; fica a versão gravada por último.
+Baixe a planilha: **Arquivo → Fazer download → Valores separados por vírgula (.csv)**, com a aba **fichas** aberta, e salve em `entrada/`. Também servem os CSV exportados direto dos tablets. Fichas repetidas são contadas uma vez (fica a versão gravada por último).
 
-As pastas `entrada/` e `saida/` estão no `.gitignore` e **não vão para o GitHub**, porque contêm dados de pacientes.
+As pastas `entrada/` e `saida/` estão no `.gitignore` e **não vão para o GitHub**.
 
 ### Relatório da vigilância (uso interno)
 
 ```
-python3 scripts/relatorio_epidemiologico.py entrada/
+python3 scripts/relatorio_epidemiologico.py entrada/ --municipio 4115200
 ```
 
-Gera em `saida/interno/`:
+Sem `--municipio`, usa o município de residência mais frequente nas fichas e avisa quais outros há. Gera em `saida/interno/` (com o código do município no nome):
 
-- `relatorio_AAAA-MM-DD.html`: resumo, curva epidêmica por semana epidemiológica, casos por bairro (por 1.000 domicílios do CNEFE), sexo e faixa etária, sinais clínicos, oportunidade da notificação, lista de bloqueio, áreas de atenção, mapa e qualidade do georreferenciamento.
-- `lista_bloqueio.csv`: casos prováveis com início dos sintomas nos últimos 14 dias, com endereço e coordenadas, para a equipe de endemias.
-- `areas_atencao.csv`: círculos de 200 m centrados num caso com pelo menos 3 casos prováveis dos últimos 14 dias.
-- `mapa_casos.html`: mapa interativo dos casos (precisa de internet para o mapa de fundo).
-- `casos_por_se.csv` e `casos_por_bairro.csv`.
+- `relatorio_CODIGO_AAAA-MM-DD.html`: resumo, curva epidêmica, casos por bairro (por 1.000 domicílios do CNEFE), sexo e faixa etária, sinais clínicos, oportunidade da notificação, lista de bloqueio, áreas de atenção, mapa e qualidade do georreferenciamento.
+- `lista_bloqueio_CODIGO.csv`: casos prováveis com início dos sintomas nos últimos 14 dias, com endereço, para a equipe de endemias.
+- `areas_atencao_CODIGO.csv`: círculos de 200 m centrados num caso, com pelo menos 3 casos prováveis dos últimos 14 dias.
+- `mapa_casos_CODIGO.html`: mapa interativo (precisa de internet para o mapa de fundo).
+- `casos_por_se_CODIGO.csv` e `casos_por_bairro_CODIGO.csv`.
 
-Opções: `--data-ref AAAA-MM-DD`, `--dias 14`, `--raio 200`, `--minimo 3`, `--populacao N` (para incidência por 100 mil habitantes). Veja todas com `--help`.
+Opções: `--data-ref AAAA-MM-DD`, `--dias 14`, `--raio 200`, `--minimo 3`, `--populacao N` (incidência por 100 mil hab.). Veja todas com `--help`.
 
-Definições usadas:
+Definições:
 
 - **Caso provável**: toda ficha, exceto as descartadas (classificação 5).
 - **Confirmado**: classificação 10, 11, 12 ou 13.
-- **Semana epidemiológica**: de domingo a sábado; a semana 1 é a que contém 4 de janeiro. Conta pela data de início dos sintomas (ou de notificação, se faltar).
+- **Semana epidemiológica**: de domingo a sábado; a semana 1 contém 4 de janeiro. Conta pela data de início dos sintomas (ou de notificação, se faltar).
 
 ### Boletim para a população
 
 ```
-python3 scripts/boletim_publico.py entrada/ --contato "Unidade de Saúde: (44) 0000-0000"
+python3 scripts/boletim_publico.py entrada/ --municipio 4128302 --contato "Unidade de Saúde: (44) 0000-0000"
 ```
 
-Gera em `saida/publico/`:
+Gera em `saida/publico/` uma imagem 1080x1350 (WhatsApp, Instagram, mural) e uma página HTML. **Sem nomes, endereços ou pontos no mapa.** Bairros com menos de 5 casos prováveis são somados em "Outras localidades" (ajuste com `--minimo`). Revise o texto de prevenção com a equipe antes de divulgar.
 
-- `boletim_AAAA-MM-DD.png`: imagem 1080x1350 para WhatsApp, Instagram e mural.
-- `boletim_AAAA-MM-DD.html`: página com a imagem e os números em texto.
+### Notebook para análises livres
 
-O boletim **não tem nomes, endereços nem pontos no mapa**. Bairros com menos de 5 casos prováveis são somados em "Outras localidades" (ajuste com `--minimo`). Revise o texto de prevenção com a equipe antes de divulgar.
+`notebooks/exemplo_analise.ipynb` mostra curva epidêmica, casos por bairro, tabela cruzada, filtro por sinais clínicos, tempo até a notificação, mapa e como salvar um recorte. Abra com `jupyter lab`. Antes de enviar um notebook ao GitHub, limpe as saídas (*Edit → Clear Outputs of All Cells*).
 
 ### Testar sem dados reais
 
 ```
 python3 scripts/gerar_dados_teste.py 150
+python3 scripts/gerar_dados_teste.py 300 dados/teste/maringa.csv --municipio 4115200
 python3 scripts/relatorio_epidemiologico.py dados/teste/
 python3 scripts/boletim_publico.py dados/teste/
 ```
 
 As fichas de teste são fictícias ("Paciente Teste 001"...). Os endereços são sorteados da base do IBGE.
 
-### Notebook para análises livres
-
-**Atalho no Mac:** clique duas vezes em `abrir_jupyter.command` (na pasta do projeto). Ele abre o Terminal, ativa o ambiente `.venv` (ou cria e instala as bibliotecas na primeira vez) e abre o Jupyter Lab no navegador, na pasta `notebooks/`. Se o Mac bloquear o arquivo, clique com o botão direito, escolha **Abrir** e confirme. Para encerrar o Jupyter, feche a janela do Terminal.
-
-`notebooks/exemplo_analise.ipynb` lê as fichas de `entrada/` (ou as fictícias de `dados/teste/`) e mostra exemplos: curva epidêmica, casos por bairro, tabela cruzada, filtro por sinais clínicos, tempo até a notificação, mapa e como salvar um recorte. Abra com:
-
-```
-source .venv/bin/activate
-jupyter lab
-```
-
-Antes de enviar um notebook ao GitHub, limpe as saídas (*Edit → Clear Outputs of All Cells*): elas podem conter dados de pacientes.
-
 ## Tabela exportada
 
-- Uma linha por notificação, uma coluna por variável (131 colunas).
-- Separador `;` e codificação UTF-8, para abrir direto no Excel em português.
+- Uma linha por notificação, uma coluna por variável (131 colunas). No tablet: separador `;`, UTF-8. Na planilha Google: mais a coluna `recebido_em`.
 - Datas no formato `AAAA-MM-DD`.
-- Os nomes de coluna seguem, quando possível, os nomes usados nas bases do Sinan. Confira com o dicionário de dados oficial antes de cruzar bases.
+- Os nomes de coluna seguem, quando possível, os das bases do Sinan. Confira com o dicionário de dados oficial antes de cruzar bases. O dicionário de variáveis sai em **Registros → Baixar dicionário de variáveis**.
 
 ## Cuidados
 
-- Os registros ficam guardados **somente no navegador do tablet** (localStorage). Limpar os dados do navegador, usar aba anônima ou trocar de navegador apaga ou esconde os registros. **Exporte a tabela ao fim de cada turno.**
-- A tabela contém dados pessoais de saúde (nome, CNS, endereço e coordenadas da residência). Para mapas que vão circular, mostre os casos agrupados por setor censitário, quadra ou bairro, não pontos exatos. Guarde e transmita conforme a LGPD e as normas da secretaria de saúde.
-- Os campos marcados como obrigatórios foram definidos a partir da ficha em papel. Ajuste conforme a orientação da vigilância local.
+- As fichas contêm dados pessoais de saúde (nome, CNS, endereço e coordenadas da residência). Para mapas que vão circular, mostre os casos agrupados por setor censitário, quadra ou bairro, não pontos exatos.
+- A chave de envio dá acesso de gravação à planilha. Troque-a (propriedade `CHAVE` no Apps Script) se ela vazar, e informe a nova às unidades.
+- Os campos obrigatórios foram definidos a partir da ficha em papel. Ajuste conforme a orientação da vigilância.

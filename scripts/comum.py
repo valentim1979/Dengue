@@ -1,5 +1,5 @@
 """Funções comuns: leitura das tabelas exportadas pelo formulário e variáveis derivadas."""
-import csv
+import json
 import math
 import unicodedata
 from datetime import date, timedelta
@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 RAIZ = Path(__file__).resolve().parent.parent
-CNEFE_PADRAO = RAIZ / "dados" / "cnefe_2022_4128302_uniflor.csv"
+BASES = RAIZ / "bases"
 
 AGRAVO = {"1": "Dengue", "2": "Chikungunya"}
 CLASSIFICACAO = {"5": "Descartado", "10": "Dengue", "11": "Dengue com sinais de alarme",
@@ -84,7 +84,13 @@ def ler_fichas(caminhos):
         arquivos += sorted(c.glob("*.csv")) if c.is_dir() else [c]
     if not arquivos:
         raise SystemExit("Nenhum arquivo CSV encontrado.")
-    partes = [pd.read_csv(a, sep=";", dtype=str, encoding="utf-8-sig", keep_default_na=False) for a in arquivos]
+    partes = []
+    for a in arquivos:
+        # O formulário exporta com ";"; o download da planilha Google vem com ","
+        with open(a, encoding="utf-8-sig") as f:
+            primeira = f.readline()
+        sep = ";" if primeira.count(";") >= primeira.count(",") else ","
+        partes.append(pd.read_csv(a, sep=sep, dtype=str, encoding="utf-8-sig", keep_default_na=False))
     df = pd.concat(partes, ignore_index=True)
     if "id_registro" not in df.columns:
         raise SystemExit("Os arquivos não parecem ser tabelas exportadas pelo formulário (falta id_registro).")
@@ -92,7 +98,7 @@ def ler_fichas(caminhos):
     return preparar(df), arquivos
 
 
-COLUNAS_USADAS = ["dt_notific", "dt_sin_pri", "dt_nasc", "idade", "idade_un", "agravo", "classi_fin",
+COLUNAS_USADAS = ["cod_mn_resi", "id_mn_resi", "dt_notific", "dt_sin_pri", "dt_nasc", "idade", "idade_un", "agravo", "classi_fin",
                   "cs_sexo", "cs_gestant", "evolucao", "hospitaliz", "nm_pacient", "nm_bairro", "nm_logrado",
                   "nu_numero", "latitude", "longitude", "geo_metodo", "geo_setor", "salvo_em", *SINAIS]
 
@@ -126,22 +132,50 @@ def preparar(df):
     return df
 
 
-def bairros_cnefe(caminho=CNEFE_PADRAO):
-    """Domicílios e centro aproximado de cada bairro/localidade a partir do CNEFE."""
-    dados = {}
-    with open(caminho, encoding="utf-8") as f:
-        for r in csv.DictReader(f, delimiter=";"):
-            nome = " ".join(w if w in ("da", "das", "de", "do", "dos") else w.capitalize()
-                            for w in r["DSC_LOCALIDADE"].lower().split())
-            d = dados.setdefault(norm(nome), {"bairro": nome, "domicilios": 0, "lat": [], "lon": []})
-            if r["COD_ESPECIE"] in ("1", "2"):
-                d["domicilios"] += 1
-            d["lat"].append(float(r["LATITUDE"]))
-            d["lon"].append(float(r["LONGITUDE"]))
-    linhas = [{"chave": k, "bairro": v["bairro"], "domicilios": v["domicilios"],
-               "lat": sum(v["lat"]) / len(v["lat"]), "lon": sum(v["lon"]) / len(v["lon"])}
-              for k, v in dados.items()]
-    return pd.DataFrame(linhas)
+def carregar_base(codigo):
+    """Base de endereços do município (bases/<código>.json), com coordenadas em graus."""
+    caminho = BASES / f"{codigo}.json"
+    if not caminho.exists():
+        raise SystemExit(f"Sem base de endereços para o município {codigo} em {BASES}.")
+    base = json.loads(caminho.read_text(encoding="utf-8"))
+    for p in base["pontos"]:
+        p[2] /= 1e6
+        p[3] /= 1e6
+    return base
+
+
+def municipios():
+    return json.loads((BASES / "municipios.json").read_text(encoding="utf-8"))
+
+
+def escolher_municipio(df, codigo=None):
+    """Filtra as fichas pelo município de residência.
+
+    Sem código, usa o município de residência mais frequente nas fichas.
+    """
+    lista = {m["codigo"]: m["nome"] for m in municipios()}
+    por_nome = {norm(n): c for c, n in lista.items()}
+    cod = df["cod_mn_resi"].where(df["cod_mn_resi"] != "", df["id_mn_resi"].map(lambda n: por_nome.get(norm(n), "")))
+    df = df.assign(cod_residencia=cod.str[:7])
+    if not codigo:
+        contagem = df.loc[df["cod_residencia"] != "", "cod_residencia"].value_counts()
+        if contagem.empty:
+            raise SystemExit("As fichas não têm município de residência. Informe --municipio CODIGO_IBGE.")
+        codigo = contagem.index[0]
+        if len(contagem) > 1:
+            outros = ", ".join(f"{lista.get(c, c)} ({n})" for c, n in contagem.items())
+            print(f"Fichas de mais de um município: {outros}. Usando {lista.get(codigo, codigo)}; "
+                  "para outro, informe --municipio CODIGO_IBGE.")
+    codigo = str(codigo)
+    if codigo not in lista:
+        raise SystemExit(f"Município {codigo} não está em bases/municipios.json.")
+    return df[df["cod_residencia"] == codigo].reset_index(drop=True), codigo, lista[codigo]
+
+
+def bairros_cnefe(base):
+    """Domicílios e centro aproximado de cada bairro/localidade, a partir da base do município."""
+    return pd.DataFrame([{"chave": norm(nome), "bairro": nome, "domicilios": dom, "lat": lat, "lon": lon}
+                         for nome, dom, lat, lon in base["bairros"]])
 
 
 def padronizar_bairro(df, bairros):
